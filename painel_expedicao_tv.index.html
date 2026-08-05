@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Torre de Controle — Expedição BR3R</title>
+<title>Torre de Controle — GRF Distribuição</title>
 <style>
   :root{
     --bg: #0A0E13;
@@ -760,19 +760,40 @@ setInterval(tickClock, 1000);
 tickClock();
 
 /* =========================================================
-   CARREGAMENTO DE DADOS
+   CARREGAMENTO DE DADOS — planilha real via Apps Script (doGet)
    -----------------------------------------------------------
-   Por enquanto usa o mock acima. Para plugar na planilha real,
-   publique a aba "Programação" (Arquivo > Compartilhar > Publicar
-   na web > formato CSV) e troque a linha abaixo por um fetch
-   nessa URL, convertendo o CSV em objetos como os do dadosMock.
+   Se a busca falhar (sem internet, URL fora do ar, etc), o
+   painel cai pro mock automaticamente, pra nunca ficar em
+   branco na TV.
    ========================================================= */
-function carregarDados(){
-  render(dadosMock);
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyL8qOQcDNlo6MLvr4Q5j4XtnkBCbbmCF79JXiePOSfwblgmuIXehjMkxYUV0KW2QgP/exec";
+
+async function carregarDados(){
+  try {
+    const resp = await fetch(SHEET_API_URL, { cache: "no-store" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const bruto = await resp.json();
+
+    if (!Array.isArray(bruto) || bruto.length === 0) throw new Error("Planilha vazia");
+
+    const dados = bruto.map(d => ({
+      placa: d.placa,
+      destino: d.destino || "Sem destino",
+      saiu: !!d.saiu,
+      horaSaida: d.horaSaida || null,
+      previsto: d.horarioLimite || getHorarioLimite(d.destino)
+    }));
+
+    document.getElementById("footerUpdate").dataset.fonte = "real";
+    render(dados);
+  } catch (err) {
+    console.error("Não foi possível carregar a planilha real, usando exemplo:", err);
+    render(dadosMock);
+  }
 }
 
 carregarDados();
-setInterval(carregarDados, 5 * 60 * 1000); // reprocessa a cada 5 min
+setInterval(carregarDados, 5 * 60 * 1000); // busca dados novos a cada 5 min
 </script>
 
 </body>
