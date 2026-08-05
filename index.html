@@ -768,13 +768,35 @@ tickClock();
    ========================================================= */
 const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyL8qOQcDNlo6MLvr4Q5j4XtnkBCbbmCF79JXiePOSfwblgmuIXehjMkxYUV0KW2QgP/exec";
 
+function mostrarFalha(msg){
+  // Nunca cair pro mock: melhor mostrar que está sem dados do que mostrar dado falso.
+  document.getElementById("kpiTotal").textContent = "--";
+  document.getElementById("kpiSaiu").textContent = "--";
+  document.getElementById("kpiPendente").textContent = "--";
+  document.getElementById("kpiPct").textContent = "--";
+  document.getElementById("excCount").textContent = "sem dados";
+  const board = document.getElementById("board");
+  board.querySelectorAll(".board-row:not(.head)").forEach(r=>r.remove());
+  const aviso = document.createElement("div");
+  aviso.className = "board-row";
+  aviso.innerHTML = `<span class="placa">—</span><span class="destino">${msg}</span><span class="meta"></span><span class="status-pill critico"><span class="dot"></span>Sem conexão</span>`;
+  board.appendChild(aviso);
+  document.getElementById("rotaList").innerHTML = "";
+  document.getElementById("tlChart").innerHTML = "";
+  document.getElementById("tlLabels").innerHTML = "";
+  document.getElementById("saidasLog").innerHTML = "";
+  document.getElementById("footerUpdate").textContent =
+    "Falha ao atualizar — última tentativa: " + new Date().toLocaleTimeString("pt-BR");
+}
+
 async function carregarDados(){
   try {
     const resp = await fetch(SHEET_API_URL, { cache: "no-store" });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const bruto = await resp.json();
 
-    if (!Array.isArray(bruto) || bruto.length === 0) throw new Error("Planilha vazia");
+    if (!Array.isArray(bruto)) throw new Error("Resposta inesperada");
+    if (bruto.length === 0){ mostrarFalha("Nenhum veículo programado"); return; }
 
     const dados = bruto.map(d => ({
       placa: d.placa,
@@ -784,11 +806,10 @@ async function carregarDados(){
       previsto: d.horarioLimite || getHorarioLimite(d.destino)
     }));
 
-    document.getElementById("footerUpdate").dataset.fonte = "real";
     render(dados);
   } catch (err) {
-    console.error("Não foi possível carregar a planilha real, usando exemplo:", err);
-    render(dadosMock);
+    console.error("Falha ao carregar a planilha:", err);
+    mostrarFalha("Não foi possível carregar a planilha");
   }
 }
 
