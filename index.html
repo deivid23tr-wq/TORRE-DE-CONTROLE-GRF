@@ -419,25 +419,25 @@
     margin-bottom:8px;
   }
   .saida-item{
-    display:flex;
+    display:grid;
+    grid-template-columns: 58px 96px minmax(0,1fr);
     align-items:center;
-    justify-content:space-between;
-    gap:10px;
+    gap:12px;
     padding:7px 0;
     border-bottom:1px solid var(--line);
     font-size:12.5px;
+    text-align:left;
   }
   .saida-item:last-child{ border-bottom:none; }
   .saida-hora{
     font-family:var(--mono);
     color:var(--green);
     font-weight:700;
-    flex-shrink:0;
   }
   .saida-placa{
     font-family:var(--mono);
     font-weight:700;
-    flex-shrink:0;
+    letter-spacing:0.3px;
   }
   .saida-destino{
     color:var(--muted);
@@ -445,7 +445,20 @@
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
-    text-align:right;
+  }
+  /* cabeçalho da lista */
+  .saida-head{
+    display:grid;
+    grid-template-columns: 58px 96px minmax(0,1fr);
+    gap:12px;
+    padding-bottom:6px;
+    margin-bottom:2px;
+    border-bottom:1px solid var(--line);
+    font-size:9.5px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted-2);
+    font-weight:700;
   }
 
   footer{
@@ -540,6 +553,11 @@
           <div class="tl-labels" id="tlLabels"></div>
           <div class="saidas-log">
             <div class="saidas-log-title">Quem saiu, e quando</div>
+            <div class="saida-head">
+              <span>Hora</span>
+              <span>Veículo</span>
+              <span>Destino</span>
+            </div>
             <div id="saidasLog"></div>
           </div>
         </div>
@@ -731,7 +749,7 @@ function render(dados){
   const saidasLog = document.getElementById("saidasLog");
   saidasLog.innerHTML = "";
   if(saidas.length === 0){
-    saidasLog.innerHTML = `<div class="saida-item"><span class="saida-destino">Nenhuma saída registrada ainda</span></div>`;
+    saidasLog.innerHTML = `<div class="saida-item"><span class="saida-hora">—</span><span class="saida-placa"></span><span class="saida-destino">Nenhuma saída registrada ainda</span></div>`;
   } else {
     saidas.slice().reverse().forEach(d=>{
       const item = document.createElement("div");
