@@ -350,7 +350,53 @@
     border-radius:4px;
   }
 
-  /* faixa larga do gráfico, abaixo do grid principal */
+  /* painel de transbordos */
+  .faixa-transbordo{ margin-top:16px; flex-shrink:0; }
+  .tb-wrap{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap:10px;
+    padding:14px clamp(14px,1.8vw,20px);
+  }
+  .tb-card{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-left-width:3px;
+    border-radius:6px;
+    padding:10px 12px;
+  }
+  .tb-card.chegou{ border-left-color:var(--green); }
+  .tb-card.transito{ border-left-color:var(--amber); }
+  .tb-card.parado{ border-left-color:var(--muted-2); }
+  .tb-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .tb-placa{ font-family:var(--mono); font-weight:700; font-size:13.5px; }
+  .tb-badge{
+    font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px;
+    padding:3px 8px; border-radius:10px; white-space:nowrap;
+  }
+  .tb-badge.chegou{ background:rgba(46,204,113,0.14); color:var(--green); }
+  .tb-badge.transito{ background:rgba(245,166,35,0.14); color:var(--amber); }
+  .tb-badge.parado{ background:rgba(124,137,152,0.14); color:var(--muted); }
+  .tb-ponto{ font-size:11.5px; color:var(--muted); margin-bottom:8px; }
+  .tb-horas{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12px;
+  }
+  .tb-horas .hs{ color:var(--text); font-weight:700; }
+  .tb-horas .seta{ color:var(--muted-2); }
+  .tb-horas .hc{ color:var(--green); font-weight:700; }
+  .tb-horas .hc.pendente{ color:var(--muted-2); font-weight:400; }
+  .tb-vazio{
+    grid-column:1/-1; text-align:center; color:var(--muted-2);
+    font-size:12.5px; padding:14px 0;
+  }
+
   .faixa-grafico{
     margin-top:16px;
     flex-shrink:0;
@@ -628,6 +674,14 @@
 
   </div>
 
+  <div class="panel faixa-transbordo">
+    <div class="panel-head">
+      <span class="panel-title">Transbordos · Chegada nos Pontos de Apoio</span>
+      <span class="panel-count" id="tbCount">—</span>
+    </div>
+    <div class="tb-wrap" id="tbWrap"></div>
+  </div>
+
   <div class="panel faixa-grafico">
     <div class="panel-head">
       <span class="panel-title">Saídas ao longo do dia</span>
@@ -857,6 +911,49 @@ function render(dados){
     });
   }
 
+  // ===== Painel de Transbordos =====
+  const tbWrap = document.getElementById("tbWrap");
+  const tbCount = document.getElementById("tbCount");
+  const transbordos = dados.filter(d => d.tipo === "Transbordo");
+
+  tbWrap.innerHTML = "";
+  if (transbordos.length === 0) {
+    tbCount.textContent = "nenhum hoje";
+    tbWrap.innerHTML = `<div class="tb-vazio">Nenhum transbordo programado hoje</div>`;
+  } else {
+    const chegaram = transbordos.filter(d => d.chegou).length;
+    tbCount.textContent = chegaram + "/" + transbordos.length + " chegaram";
+
+    // ordena: em trânsito primeiro (o que precisa de atenção), depois os que chegaram
+    const ordenados = transbordos.slice().sort((a,b)=>{
+      if (a.chegou !== b.chegou) return a.chegou ? 1 : -1;
+      return (b.horaSaida || "").localeCompare(a.horaSaida || "");
+    });
+
+    ordenados.forEach(d=>{
+      let cls, badge;
+      if (d.chegou)      { cls = "chegou";   badge = "Chegou"; }
+      else if (d.saiu)   { cls = "transito"; badge = "Em trânsito"; }
+      else               { cls = "parado";   badge = "Na base"; }
+
+      const card = document.createElement("div");
+      card.className = "tb-card " + cls;
+      card.innerHTML = `
+        <div class="tb-top">
+          <span class="tb-placa">${d.placa}</span>
+          <span class="tb-badge ${cls}">${badge}</span>
+        </div>
+        <div class="tb-ponto">${d.destino}</div>
+        <div class="tb-horas">
+          <span class="hs">${d.horaSaida || "--:--"}</span>
+          <span class="seta">→</span>
+          <span class="hc ${d.chegou ? "" : "pendente"}">${d.chegou ? d.horaChegada : "aguardando"}</span>
+        </div>
+      `;
+      tbWrap.appendChild(card);
+    });
+  }
+
   document.getElementById("footerUpdate").textContent =
     "Última atualização: " + new Date().toLocaleTimeString("pt-BR");
 }
@@ -897,6 +994,10 @@ function mostrarFalha(msg){
   document.getElementById("tlChart").innerHTML = "";
   document.getElementById("tlLabels").innerHTML = "";
   document.getElementById("saidasLog").innerHTML = "";
+  var tbW = document.getElementById("tbWrap");
+  if (tbW) tbW.innerHTML = "";
+  var tbC = document.getElementById("tbCount");
+  if (tbC) tbC.textContent = "—";
   document.getElementById("footerUpdate").textContent =
     "Falha ao atualizar — última tentativa: " + new Date().toLocaleTimeString("pt-BR");
 }
