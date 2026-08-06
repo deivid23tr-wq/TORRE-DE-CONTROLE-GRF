@@ -331,14 +331,30 @@
     border-radius:4px;
   }
 
+  /* faixa larga do gráfico, abaixo do grid principal */
+  .faixa-grafico{
+    margin-top:16px;
+    flex-shrink:0;
+  }
+  .legenda-grafico{
+    display:flex;
+    gap:14px;
+    font-size:10.5px;
+    color:var(--muted);
+  }
+  .lg-item{ display:flex; align-items:center; gap:5px; }
+  .lg-cor{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .lg-verde{ background:var(--green); }
+  .lg-vermelho{ background:var(--red); }
+
   /* timeline saidas */
   .timeline-wrap{ padding:16px 20px; flex:1; display:flex; flex-direction:column; min-height:0; }
   .timeline-chart{
-    height:96px;
+    height:150px;
     flex-shrink:0;
     display:flex;
     align-items:flex-end;
-    gap:6px;
+    gap:8px;
     padding-bottom:6px;
     border-bottom:1px solid var(--line);
   }
@@ -352,16 +368,24 @@
     position:relative;
     cursor:pointer;
   }
-  .tl-bar{
+  .tl-stack{
     width:100%;
-    background:linear-gradient(180deg, var(--green), var(--blue));
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
     border-radius:3px 3px 0 0;
-    opacity:0.85;
-    min-height:3px;
-    transition:opacity 0.15s;
+    overflow:hidden;
   }
-  .tl-bar-col:hover .tl-bar,
-  .tl-bar-col.ativo .tl-bar{ opacity:1; }
+  .tl-seg-atraso{
+    background:linear-gradient(180deg, #E5484D, #A32328);
+    min-height:0;
+  }
+  .tl-seg-ok{
+    background:linear-gradient(180deg, var(--green), var(--blue));
+    min-height:0;
+  }
+  .tl-bar-col:hover .tl-stack,
+  .tl-bar-col.ativo .tl-stack{ filter:brightness(1.15); }
   .tl-bar-count{
     font-family:var(--mono);
     font-size:10px;
@@ -434,6 +458,7 @@
     color:var(--green);
     font-weight:700;
   }
+  .saida-hora.atrasada{ color:var(--red); }
   .saida-placa{
     font-family:var(--mono);
     font-weight:700;
@@ -546,13 +571,10 @@
 
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-title">Saídas ao longo da manhã</span>
+          <span class="panel-title">Quem saiu, e quando</span>
         </div>
         <div class="timeline-wrap">
-          <div class="timeline-chart" id="tlChart"></div>
-          <div class="tl-labels" id="tlLabels"></div>
           <div class="saidas-log">
-            <div class="saidas-log-title">Quem saiu, e quando</div>
             <div class="saida-head">
               <span>Hora</span>
               <span>Veículo</span>
@@ -564,6 +586,20 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="panel faixa-grafico">
+    <div class="panel-head">
+      <span class="panel-title">Saídas ao longo do dia</span>
+      <span class="legenda-grafico">
+        <span class="lg-item"><span class="lg-cor lg-verde"></span>No prazo</span>
+        <span class="lg-item"><span class="lg-cor lg-vermelho"></span>Atrasado</span>
+      </span>
+    </div>
+    <div class="timeline-wrap">
+      <div class="timeline-chart" id="tlChart"></div>
+      <div class="tl-labels" id="tlLabels"></div>
+    </div>
   </div>
 
   <footer>
@@ -699,11 +735,18 @@ function render(dados){
       rotaList.appendChild(item);
     });
 
-  // ===== Timeline de saídas por hora (com detalhe de quem saiu) =====
+  // ===== Timeline de saídas por hora (verde = no prazo, vermelho = atrasado) =====
   const saidas = dados.filter(d=>d.saiu && d.horaSaida)
+    .map(d=>{
+      const limite = d.previsto || getHorarioLimite(d.destino);
+      const [hL,mL] = limite.split(":").map(Number);
+      const [hS,mS] = d.horaSaida.split(":").map(Number);
+      const atrasado = (hS*60 + mS) > (hL*60 + mL);
+      return {...d, limite, atrasado};
+    })
     .sort((a,b)=> a.horaSaida.localeCompare(b.horaSaida));
 
-  const porHora = {}; // "06h" -> [ {placa, destino, horaSaida}, ... ]
+  const porHora = {};
   saidas.forEach(d=>{
     const h = d.horaSaida.split(":")[0] + "h";
     if(!porHora[h]) porHora[h] = [];
@@ -719,19 +762,25 @@ function render(dados){
 
   horas.forEach(h=>{
     const itens = porHora[h];
+    const nAtraso = itens.filter(d=>d.atrasado).length;
+    const nOk = itens.length - nAtraso;
+    const alturaTotal = (itens.length / maxVal) * 100;
+
     const col = document.createElement("div");
     col.className = "tl-bar-col";
 
     const linhasTooltip = itens
-      .map(d=>`<div class="tt-linha"><b>${d.horaSaida}</b> · ${d.placa} — ${d.destino}</div>`)
+      .map(d=>`<div class="tt-linha"><b>${d.horaSaida}</b> · ${d.placa} — ${d.destino} ${d.atrasado ? "⚠" : "✓"}</div>`)
       .join("");
 
     col.innerHTML = `
       <div class="tl-tooltip">${linhasTooltip}</div>
       <div class="tl-bar-count">${itens.length}</div>
-      <div class="tl-bar" style="height:${(itens.length/maxVal)*100}%"></div>
+      <div class="tl-stack" style="height:${alturaTotal}%">
+        ${nAtraso ? `<div class="tl-seg-atraso" style="flex:${nAtraso}"></div>` : ""}
+        ${nOk ? `<div class="tl-seg-ok" style="flex:${nOk}"></div>` : ""}
+      </div>
     `;
-    // toque na TV/celular também abre o tooltip (não depende só de mouse)
     col.addEventListener("click", ()=>{
       const jaAtivo = col.classList.contains("ativo");
       document.querySelectorAll(".tl-bar-col.ativo").forEach(c=>c.classList.remove("ativo"));
@@ -745,7 +794,7 @@ function render(dados){
     tlLabels.appendChild(lbl);
   });
 
-  // ===== Lista "quem saiu, e quando" (mais recente primeiro) =====
+  // ===== Lista "quem saiu, e quando" =====
   const saidasLog = document.getElementById("saidasLog");
   saidasLog.innerHTML = "";
   if(saidas.length === 0){
@@ -755,7 +804,7 @@ function render(dados){
       const item = document.createElement("div");
       item.className = "saida-item";
       item.innerHTML = `
-        <span class="saida-hora">${d.horaSaida}</span>
+        <span class="saida-hora ${d.atrasado ? "atrasada" : ""}">${d.horaSaida}</span>
         <span class="saida-placa">${d.placa}</span>
         <span class="saida-destino">${d.destino}</span>
       `;
