@@ -394,8 +394,8 @@
   .saida-head.dist-head span:last-child{ text-align:left; }
 
   /* estados da chegada de transbordo */
-  .saida-chegada.aguardando{ color:var(--amber); font-weight:700; font-size:10.5px; }
-  .saida-chegada.nabase{ color:var(--muted-2); font-weight:400; font-size:10.5px; }
+  .saida-chegada.aguardando{ color:var(--amber); font-weight:800; font-size:11px; }
+  .saida-chegada.nabase{ color:var(--muted-2); font-weight:600; font-size:11px; }
   .lista-vazia{
     text-align:center; color:var(--muted-2);
     font-size:12px; padding:16px 0;
@@ -424,12 +424,13 @@
     display:flex;
     align-items:flex-end;
     justify-content:space-evenly;
-    gap: clamp(8px, 1.5vw, 20px);
+    gap: clamp(6px, 1.2vw, 20px);
     padding: 0 8px 8px;
     border-bottom:1px solid var(--line);
-    overflow-x:auto;
-    overflow-y:hidden;
+    overflow: visible;   /* sem corte: o tooltip precisa sair da caixa */
   }
+  .timeline-wrap{ overflow: visible; }
+  .faixa-grafico{ overflow: visible; }
   .tl-bar-col{
     flex: 0 0 auto;
     width: clamp(38px, 6vw, 84px);   /* largura fixa: não estica com poucas barras */
@@ -478,20 +479,21 @@
   }
   .tl-tooltip{
     position:absolute;
-    bottom:100%;
+    bottom:calc(100% - 8px);
     left:50%;
     transform:translateX(-50%);
     margin-bottom:8px;
     background:#1B242D;
     border:1px solid var(--line);
     border-radius:6px;
-    padding:8px 10px;
+    padding:9px 11px;
     font-family:var(--mono);
     font-size:11px;
     white-space:nowrap;
-    z-index:5;
+    z-index:50;
     display:none;
-    box-shadow:0 6px 18px rgba(0,0,0,0.4);
+    box-shadow:0 8px 22px rgba(0,0,0,0.55);
+    pointer-events:none;
   }
   .tl-tooltip .tt-linha{ color:var(--muted); padding:1px 0; text-align:left; }
   .tl-tooltip .tt-linha b{ color:var(--text); }
@@ -553,10 +555,12 @@
   }
   .saida-chegada{
     font-family:var(--mono);
-    font-size:11.5px;
-    font-weight:700;
-    color:var(--blue);
-    text-align:right;
+    font-size:12px;
+    font-weight:800;
+    color:#7BE495;
+    text-align:left;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
   }
   .saida-chegada.vazio{ color:var(--muted-2); font-weight:400; }
   /* cabeçalho da lista */
@@ -573,7 +577,7 @@
     color:var(--muted-2);
     font-weight:700;
   }
-  .saida-head span:last-child{ text-align:right; }
+  .saida-head span:last-child{ text-align:left; }
 
   footer{
     flex-shrink:0;
@@ -590,6 +594,21 @@
   ::-webkit-scrollbar{ width:6px; }
   ::-webkit-scrollbar-track{ background:transparent; }
   ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+  /* ===== RESPONSIVO (no fim: precisa prevalecer sobre as regras base) ===== */
+  @media (max-width: 1100px){
+    .main-grid{ grid-template-columns: 1fr; height:auto; }
+    .grid-listas{ grid-template-columns: 1fr; height:auto; }
+    .grid-listas .panel{ min-height:280px; max-height:60vh; }
+    .main-grid > .panel{ min-height:300px; max-height:60vh; }
+  }
+  @media (max-width: 720px){
+    .grid-listas{ gap:12px; margin-top:12px; }
+    .grid-listas .panel{ min-height:260px; max-height:none; }
+    .saida-item, .saida-head{ grid-template-columns: 52px 1fr 74px; }
+    .saida-item.dist-item, .saida-head.dist-head{ grid-template-columns: 52px 1fr; }
+    .saida-head span:nth-child(3){ display:none; }
+    .saida-head.dist-head span:nth-child(3){ display:none; }
+  }
 </style>
 </head>
 <body>
@@ -976,8 +995,8 @@ function render(dados){
     ordenados.forEach(d=>{
       let chegadaTxt, chegadaCls;
       if(d.chegou && d.horaChegada){ chegadaTxt = d.horaChegada; chegadaCls = ""; }
-      else if(d.saiu)              { chegadaTxt = "a caminho";   chegadaCls = "aguardando"; }
-      else                         { chegadaTxt = "na base";     chegadaCls = "nabase"; }
+      else if(d.saiu)              { chegadaTxt = "A CAMINHO";   chegadaCls = "aguardando"; }
+      else                         { chegadaTxt = "NA BASE";     chegadaCls = "nabase"; }
 
       const item = document.createElement("div");
       item.className = "saida-item";
