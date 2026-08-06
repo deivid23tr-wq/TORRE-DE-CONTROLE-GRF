@@ -296,6 +296,10 @@
   @media (max-width: 460px){
     .kpi-strip{ grid-template-columns: 1fr 1fr; }
     .brand h1{ white-space:normal; line-height:1.2; }
+    .timeline-chart{ height:130px; gap:10px; }
+    .tl-bar-col{ width:30px; }
+    .tl-hora{ font-size:9.5px; }
+    .legenda-grafico{ font-size:9.5px; gap:10px; }
   }
 
   /* ===== SIDE COLUMN ===== */
@@ -348,18 +352,22 @@
   .lg-vermelho{ background:var(--red); }
 
   /* timeline saidas */
-  .timeline-wrap{ padding:16px 20px; flex:1; display:flex; flex-direction:column; min-height:0; }
+  .timeline-wrap{ padding:16px 20px 12px; flex:1; display:flex; flex-direction:column; min-height:0; }
   .timeline-chart{
-    height:150px;
+    height:180px;
     flex-shrink:0;
     display:flex;
     align-items:flex-end;
-    gap:8px;
-    padding-bottom:6px;
+    justify-content:flex-start;
+    gap: clamp(10px, 2vw, 28px);
+    padding: 0 4px 8px;
     border-bottom:1px solid var(--line);
+    overflow-x:auto;
+    overflow-y:hidden;
   }
   .tl-bar-col{
-    flex:1;
+    flex: 0 0 auto;
+    width: clamp(34px, 5vw, 62px);   /* largura fixa: não estica com poucas barras */
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -368,13 +376,24 @@
     position:relative;
     cursor:pointer;
   }
+  /* área útil da barra: isolada do rótulo, pra altura % ficar correta */
+  .tl-col-bar{
+    flex:1;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    min-height:0;
+  }
   .tl-stack{
     width:100%;
     display:flex;
     flex-direction:column;
     justify-content:flex-end;
-    border-radius:3px 3px 0 0;
+    border-radius:4px 4px 0 0;
     overflow:hidden;
+    min-height:4px;
   }
   .tl-seg-atraso{
     background:linear-gradient(180deg, #E5484D, #A32328);
@@ -413,19 +432,15 @@
   .tl-tooltip .tt-linha b{ color:var(--text); }
   .tl-bar-col:hover .tl-tooltip,
   .tl-bar-col.ativo .tl-tooltip{ display:block; }
-  .tl-labels{
-    display:flex;
-    gap:6px;
-    margin-top:6px;
-    flex-shrink:0;
-  }
-  .tl-label{
-    flex:1;
-    text-align:center;
+  /* rótulo agora fica DENTRO da coluna, sempre alinhado com a barra */
+  .tl-hora{
     font-family:var(--mono);
-    font-size:10px;
+    font-size:11px;
     color:var(--muted);
+    margin-top:7px;
+    letter-spacing:0.3px;
   }
+  .tl-labels{ display:none; } /* linha de labels antiga: não é mais usada */
 
   /* lista de saidas (quem/quando) */
   .saidas-log{
@@ -547,7 +562,7 @@
     <!-- EXCEÇÕES: quadro estilo aeroporto -->
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Ainda não saíram</span>
+        <span class="panel-title">Veículos em Atraso</span>
         <span class="panel-count" id="excCount">— veículos</span>
       </div>
       <div class="board" id="board">
@@ -571,7 +586,7 @@
 
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-title">Quem saiu, e quando</span>
+          <span class="panel-title">Horário de Saída</span>
         </div>
         <div class="timeline-wrap">
           <div class="saidas-log">
@@ -775,11 +790,14 @@ function render(dados){
 
     col.innerHTML = `
       <div class="tl-tooltip">${linhasTooltip}</div>
-      <div class="tl-bar-count">${itens.length}</div>
-      <div class="tl-stack" style="height:${alturaTotal}%">
-        ${nAtraso ? `<div class="tl-seg-atraso" style="flex:${nAtraso}"></div>` : ""}
-        ${nOk ? `<div class="tl-seg-ok" style="flex:${nOk}"></div>` : ""}
+      <div class="tl-col-bar">
+        <div class="tl-bar-count">${itens.length}</div>
+        <div class="tl-stack" style="height:${alturaTotal}%">
+          ${nAtraso ? `<div class="tl-seg-atraso" style="flex:${nAtraso}"></div>` : ""}
+          ${nOk ? `<div class="tl-seg-ok" style="flex:${nOk}"></div>` : ""}
+        </div>
       </div>
+      <div class="tl-hora">${h}</div>
     `;
     col.addEventListener("click", ()=>{
       const jaAtivo = col.classList.contains("ativo");
@@ -787,11 +805,6 @@ function render(dados){
       if(!jaAtivo) col.classList.add("ativo");
     });
     tlChart.appendChild(col);
-
-    const lbl = document.createElement("div");
-    lbl.className = "tl-label";
-    lbl.textContent = h;
-    tlLabels.appendChild(lbl);
   });
 
   // ===== Lista "quem saiu, e quando" =====
