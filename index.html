@@ -266,6 +266,8 @@
   /* ===== RESPONSIVO ===== */
   @media (max-width: 1100px){
     .main-grid{ grid-template-columns: 1fr; height:auto; }
+    .grid-listas{ grid-template-columns: 1fr; height:auto; }
+    .grid-listas .panel{ min-height:300px; max-height:55vh; }
     .side-col{ flex-direction:row; flex-wrap:wrap; }
     .side-col .panel{ min-width:280px; min-height:280px; }
     .main-grid > .panel{ min-height:300px; max-height:60vh; }
@@ -299,6 +301,14 @@
     .saida-item .saida-chegada{ grid-area:chegada; }
     .saida-head{ grid-template-columns: 52px 1fr auto; }
     .saida-head span:nth-child(3){ display:none; }
+    .saida-item.dist-item{
+      grid-template-columns: 52px 1fr;
+      grid-template-areas:
+        "hora placa"
+        "hora destino";
+    }
+    .saida-head.dist-head{ grid-template-columns: 52px 1fr; }
+    .saida-head.dist-head span:nth-child(3){ display:none; }
     .board-row.head{ display:none; }
     .board-row .placa{ grid-area:placa; font-size:15px; }
     .board-row .status-pill{ grid-area:status; justify-self:end; }
@@ -350,51 +360,45 @@
     border-radius:4px;
   }
 
-  /* painel de transbordos */
-  .faixa-transbordo{ margin-top:16px; flex-shrink:0; }
-  .tb-wrap{
+  /* grade das duas listas (distribuição | transbordo) */
+  .grid-listas{
     display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap:10px;
-    padding:14px clamp(14px,1.8vw,20px);
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+    margin-top:16px;
+    height: clamp(260px, 34vh, 420px);
+    min-height:0;
+    flex-shrink:0;
   }
-  .tb-card{
-    background:var(--panel-2);
-    border:1px solid var(--line);
-    border-left-width:3px;
-    border-radius:6px;
-    padding:10px 12px;
+  .grid-listas .panel{ min-height:0; }
+
+  /* seções dentro de "Saídas por rota" */
+  .rota-secao{ margin-bottom:14px; }
+  .rota-secao:last-child{ margin-bottom:0; }
+  .rota-secao-titulo{
+    font-size:9.5px;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    font-weight:700;
+    padding-bottom:5px;
+    margin-bottom:9px;
+    border-bottom:1px solid var(--line);
   }
-  .tb-card.chegou{ border-left-color:var(--green); }
-  .tb-card.transito{ border-left-color:var(--amber); }
-  .tb-card.parado{ border-left-color:var(--muted-2); }
-  .tb-top{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-    margin-bottom:6px;
-  }
-  .tb-placa{ font-family:var(--mono); font-weight:700; font-size:13.5px; }
-  .tb-badge{
-    font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px;
-    padding:3px 8px; border-radius:10px; white-space:nowrap;
-  }
-  .tb-badge.chegou{ background:rgba(46,204,113,0.14); color:var(--green); }
-  .tb-badge.transito{ background:rgba(245,166,35,0.14); color:var(--amber); }
-  .tb-badge.parado{ background:rgba(124,137,152,0.14); color:var(--muted); }
-  .tb-ponto{ font-size:11.5px; color:var(--muted); margin-bottom:8px; }
-  .tb-horas{
-    display:flex; align-items:center; gap:8px;
-    font-family:var(--mono); font-size:12px;
-  }
-  .tb-horas .hs{ color:var(--text); font-weight:700; }
-  .tb-horas .seta{ color:var(--muted-2); }
-  .tb-horas .hc{ color:var(--green); font-weight:700; }
-  .tb-horas .hc.pendente{ color:var(--muted-2); font-weight:400; }
-  .tb-vazio{
-    grid-column:1/-1; text-align:center; color:var(--muted-2);
-    font-size:12.5px; padding:14px 0;
+  .rota-secao-titulo.tb{ color:var(--amber); }
+  .rota-secao-titulo.dist{ color:var(--blue); }
+  .rota-vazia{ font-size:11.5px; color:var(--muted-2); padding:2px 0 6px; }
+
+  /* lista de distribuição usa 3 colunas (sem chegada) */
+  .saida-head.dist-head,
+  .saida-item.dist-item{ grid-template-columns: 52px 84px minmax(0,1fr); }
+  .saida-head.dist-head span:last-child{ text-align:left; }
+
+  /* estados da chegada de transbordo */
+  .saida-chegada.aguardando{ color:var(--amber); font-weight:700; font-size:10.5px; }
+  .saida-chegada.nabase{ color:var(--muted-2); font-weight:400; font-size:10.5px; }
+  .lista-vazia{
+    text-align:center; color:var(--muted-2);
+    font-size:12px; padding:16px 0;
   }
 
   .faixa-grafico{
@@ -646,40 +650,59 @@
       </div>
     </div>
 
-    <div class="side-col">
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">Saídas por rota</span>
-        </div>
-        <div class="rota-list" id="rotaList"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Saídas por rota</span>
       </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">Horário de Saída</span>
+      <div class="rota-list">
+        <div class="rota-secao">
+          <div class="rota-secao-titulo tb">Transbordo</div>
+          <div id="rotaTransbordo"></div>
         </div>
-        <div class="timeline-wrap">
-          <div class="saidas-log">
-            <div class="saida-head">
-              <span>Saída</span>
-              <span>Veículo</span>
-              <span>Destino</span>
-              <span>Chegada</span>
-            </div>
-            <div id="saidasLog"></div>
-          </div>
+        <div class="rota-secao">
+          <div class="rota-secao-titulo dist">Distribuição</div>
+          <div id="rotaDistribuicao"></div>
         </div>
       </div>
     </div>
 
   </div>
 
-  <div class="panel faixa-transbordo">
-    <div class="panel-head">
-      <span class="panel-title">Transbordos · Chegada nos Pontos de Apoio</span>
-      <span class="panel-count" id="tbCount">—</span>
+  <div class="grid-listas">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Horário de Saída · Distribuição</span>
+        <span class="panel-count" id="distCount">—</span>
+      </div>
+      <div class="timeline-wrap">
+        <div class="saidas-log">
+          <div class="saida-head dist-head">
+            <span>Saída</span>
+            <span>Veículo</span>
+            <span>Destino</span>
+          </div>
+          <div id="saidasLog"></div>
+        </div>
+      </div>
     </div>
-    <div class="tb-wrap" id="tbWrap"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Transbordo · Saída e Chegada</span>
+        <span class="panel-count" id="tbCount">—</span>
+      </div>
+      <div class="timeline-wrap">
+        <div class="saidas-log">
+          <div class="saida-head">
+            <span>Saída</span>
+            <span>Veículo</span>
+            <span>Ponto</span>
+            <span>Chegada</span>
+          </div>
+          <div id="tbLog"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="panel faixa-grafico">
@@ -804,19 +827,24 @@ function render(dados){
     board.appendChild(row);
   });
 
-  // ===== Saídas por rota =====
-  const porRota = {};
-  dados.forEach(d=>{
-    if(!porRota[d.destino]) porRota[d.destino] = {total:0, saiu:0};
-    porRota[d.destino].total++;
-    if(d.saiu) porRota[d.destino].saiu++;
-  });
-  const rotaList = document.getElementById("rotaList");
-  rotaList.innerHTML = "";
-  Object.entries(porRota)
-    .sort((a,b)=>b[1].total - a[1].total)
-    .forEach(([nome, v])=>{
-      const pctRota = Math.round((v.saiu/v.total)*100);
+  // ===== Saídas por rota (separado: transbordo em cima, distribuição embaixo) =====
+  function montarRotas(lista, elId){
+    const el = document.getElementById(elId);
+    el.innerHTML = "";
+    const porRota = {};
+    lista.forEach(d=>{
+      if(!porRota[d.destino]) porRota[d.destino] = {total:0, saiu:0};
+      porRota[d.destino].total++;
+      if(d.saiu) porRota[d.destino].saiu++;
+    });
+    const chaves = Object.keys(porRota);
+    if(chaves.length === 0){
+      el.innerHTML = `<div class="rota-vazia">Nenhuma rota hoje</div>`;
+      return;
+    }
+    chaves.sort((a,b)=> porRota[b].total - porRota[a].total).forEach(nome=>{
+      const v = porRota[nome];
+      const pct = Math.round((v.saiu / v.total) * 100);
       const item = document.createElement("div");
       item.className = "rota-item";
       item.innerHTML = `
@@ -824,10 +852,25 @@ function render(dados){
           <span class="rota-nome">${nome}</span>
           <span class="rota-frac">${v.saiu}/${v.total}</span>
         </div>
-        <div class="rota-bar-bg"><div class="rota-bar-fill" style="width:${pctRota}%"></div></div>
+        <div class="rota-bar-bg"><div class="rota-bar-fill" style="width:${pct}%"></div></div>
       `;
-      rotaList.appendChild(item);
+      el.appendChild(item);
     });
+  }
+
+  function marcarAtraso(d){
+    if(!d.horaSaida) return {...d, atrasado:false};
+    const limite = d.previsto || getHorarioLimite(d.destino);
+    const [hL,mL] = limite.split(":").map(Number);
+    const [hS,mS] = d.horaSaida.split(":").map(Number);
+    return {...d, atrasado: (hS*60 + mS) > (hL*60 + mL)};
+  }
+
+  const listaTransbordo   = dados.filter(d => d.tipo === "Transbordo").map(marcarAtraso);
+  const listaDistribuicao = dados.filter(d => d.tipo !== "Transbordo");
+
+  montarRotas(listaTransbordo,   "rotaTransbordo");
+  montarRotas(listaDistribuicao, "rotaDistribuicao");
 
   // ===== Timeline de saídas por hora (verde = no prazo, vermelho = atrasado) =====
   const saidas = dados.filter(d=>d.saiu && d.horaSaida)
@@ -886,71 +929,65 @@ function render(dados){
     tlChart.appendChild(col);
   });
 
-  // ===== Lista "quem saiu, e quando" =====
-  const saidasLog = document.getElementById("saidasLog");
-  saidasLog.innerHTML = "";
-  if(saidas.length === 0){
-    saidasLog.innerHTML = `<div class="saida-item"><span class="saida-hora">—</span><span class="saida-placa"></span><span class="saida-destino">Nenhuma saída registrada ainda</span><span class="saida-chegada vazio">—</span></div>`;
-  } else {
-    saidas.slice().reverse().forEach(d=>{
-      const item = document.createElement("div");
-      item.className = "saida-item";
-      // Chegada só existe para transbordo; entrega comum fica com traço
-      let chegadaTxt, chegadaCls;
-      if (d.chegou && d.horaChegada) { chegadaTxt = d.horaChegada; chegadaCls = ""; }
-      else if (d.tipo === "Transbordo") { chegadaTxt = "a caminho"; chegadaCls = "vazio"; }
-      else { chegadaTxt = "—"; chegadaCls = "vazio"; }
+  // ===== Lista: Horário de Saída · Distribuição =====
+  const saidasDist = saidas.filter(d => d.tipo !== "Transbordo");
+  const saidasTb   = saidas.filter(d => d.tipo === "Transbordo");
 
+  const logDist = document.getElementById("saidasLog");
+  const distCount = document.getElementById("distCount");
+  logDist.innerHTML = "";
+  distCount.textContent = saidasDist.length + (saidasDist.length === 1 ? " saída" : " saídas");
+
+  if(saidasDist.length === 0){
+    logDist.innerHTML = `<div class="lista-vazia">Nenhuma saída registrada ainda</div>`;
+  } else {
+    saidasDist.slice().reverse().forEach(d=>{
+      const item = document.createElement("div");
+      item.className = "saida-item dist-item";
       item.innerHTML = `
         <span class="saida-hora ${d.atrasado ? "atrasada" : ""}">${d.horaSaida}</span>
         <span class="saida-placa">${d.placa}</span>
         <span class="saida-destino">${d.destino}</span>
-        <span class="saida-chegada ${chegadaCls}">${chegadaTxt}</span>
       `;
-      saidasLog.appendChild(item);
+      logDist.appendChild(item);
     });
   }
 
-  // ===== Painel de Transbordos =====
-  const tbWrap = document.getElementById("tbWrap");
+  // ===== Lista: Transbordo · Saída e Chegada =====
+  // inclui também os que ainda não saíram, pra dar visão completa do transbordo
+  const tbLog = document.getElementById("tbLog");
   const tbCount = document.getElementById("tbCount");
-  const transbordos = dados.filter(d => d.tipo === "Transbordo");
+  tbLog.innerHTML = "";
 
-  tbWrap.innerHTML = "";
-  if (transbordos.length === 0) {
-    tbCount.textContent = "nenhum hoje";
-    tbWrap.innerHTML = `<div class="tb-vazio">Nenhum transbordo programado hoje</div>`;
+  const tbChegaram = listaTransbordo.filter(d => d.chegou).length;
+  tbCount.textContent = listaTransbordo.length
+    ? tbChegaram + "/" + listaTransbordo.length + " chegaram"
+    : "nenhum hoje";
+
+  if(listaTransbordo.length === 0){
+    tbLog.innerHTML = `<div class="lista-vazia">Nenhum transbordo programado hoje</div>`;
   } else {
-    const chegaram = transbordos.filter(d => d.chegou).length;
-    tbCount.textContent = chegaram + "/" + transbordos.length + " chegaram";
-
-    // ordena: em trânsito primeiro (o que precisa de atenção), depois os que chegaram
-    const ordenados = transbordos.slice().sort((a,b)=>{
-      if (a.chegou !== b.chegou) return a.chegou ? 1 : -1;
+    // saíram primeiro (mais recente no topo), depois os que ainda estão na base
+    const ordenados = listaTransbordo.slice().sort((a,b)=>{
+      if(a.saiu !== b.saiu) return a.saiu ? -1 : 1;
       return (b.horaSaida || "").localeCompare(a.horaSaida || "");
     });
 
     ordenados.forEach(d=>{
-      let cls, badge;
-      if (d.chegou)      { cls = "chegou";   badge = "Chegou"; }
-      else if (d.saiu)   { cls = "transito"; badge = "Em trânsito"; }
-      else               { cls = "parado";   badge = "Na base"; }
+      let chegadaTxt, chegadaCls;
+      if(d.chegou && d.horaChegada){ chegadaTxt = d.horaChegada; chegadaCls = ""; }
+      else if(d.saiu)              { chegadaTxt = "a caminho";   chegadaCls = "aguardando"; }
+      else                         { chegadaTxt = "na base";     chegadaCls = "nabase"; }
 
-      const card = document.createElement("div");
-      card.className = "tb-card " + cls;
-      card.innerHTML = `
-        <div class="tb-top">
-          <span class="tb-placa">${d.placa}</span>
-          <span class="tb-badge ${cls}">${badge}</span>
-        </div>
-        <div class="tb-ponto">${d.destino}</div>
-        <div class="tb-horas">
-          <span class="hs">${d.horaSaida || "--:--"}</span>
-          <span class="seta">→</span>
-          <span class="hc ${d.chegou ? "" : "pendente"}">${d.chegou ? d.horaChegada : "aguardando"}</span>
-        </div>
+      const item = document.createElement("div");
+      item.className = "saida-item";
+      item.innerHTML = `
+        <span class="saida-hora ${d.atrasado ? "atrasada" : ""}">${d.horaSaida || "--:--"}</span>
+        <span class="saida-placa">${d.placa}</span>
+        <span class="saida-destino">${d.destino}</span>
+        <span class="saida-chegada ${chegadaCls}">${chegadaTxt}</span>
       `;
-      tbWrap.appendChild(card);
+      tbLog.appendChild(item);
     });
   }
 
@@ -990,14 +1027,19 @@ function mostrarFalha(msg){
   aviso.className = "board-row";
   aviso.innerHTML = `<span class="placa">—</span><span class="destino">${msg}</span><span class="meta"></span><span class="status-pill critico"><span class="dot"></span>Sem conexão</span>`;
   board.appendChild(aviso);
-  document.getElementById("rotaList").innerHTML = "";
   document.getElementById("tlChart").innerHTML = "";
   document.getElementById("tlLabels").innerHTML = "";
   document.getElementById("saidasLog").innerHTML = "";
-  var tbW = document.getElementById("tbWrap");
+  var tbW = document.getElementById("tbLog");
   if (tbW) tbW.innerHTML = "";
   var tbC = document.getElementById("tbCount");
   if (tbC) tbC.textContent = "—";
+  var dC = document.getElementById("distCount");
+  if (dC) dC.textContent = "—";
+  ["rotaTransbordo","rotaDistribuicao"].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = "";
+  });
   document.getElementById("footerUpdate").textContent =
     "Falha ao atualizar — última tentativa: " + new Date().toLocaleTimeString("pt-BR");
 }
