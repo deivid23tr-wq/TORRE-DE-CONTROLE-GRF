@@ -26,6 +26,18 @@ var TRANSBORDOS = [
   { nome: "Angra",           destino: ["angra"],                          lat: -22.99707, lon: -44.23958, raio: 400 }
 ];
 
+/* Cerca operacional da base GRF.
+   O ponto informado está dentro da cerca exibida no Eclipse.
+   A histerese evita falso sai/entra causado por oscilação do GPS. */
+var BASE_GRF = {
+  nome: "GRF Distribuição - Três Rios",
+  lat: -22.07996,
+  lon: -43.21254,
+  raioEntrada: 350,
+  raioSaida: 450,
+  pontosForaParaConfirmar: 2
+};
+
 /* ============================================================
    HORÁRIO-LIMITE — sempre a saída da GRF
    ============================================================ */
@@ -437,7 +449,7 @@ function fetchComRetry(url, options, tentativas) {
    deixa de transformar uma saída adiantada em atraso.
    ============================================================ */
 function consultarEventosPeriodo(deviceId, cookies, dataRef, horaInicio, horaFim, transbordo) {
-  var res = { partidas: [], chegadas: [] };
+  var res = { partidas: [], chegadas: [], posicoes: [] };
   var d = Utilities.formatDate(dataRef, Session.getScriptTimeZone(), "yyyy/MM/dd");
   var url = BASE_URL + "?page=map.device&page_cmd=mapupd"
     + "&date_fr=" + encodeURIComponent(d + "/" + horaInicio)
@@ -460,12 +472,20 @@ function consultarEventosPeriodo(deviceId, cookies, dataRef, horaInicio, horaFim
     var instante = combinarDataHora(dataRef, hora);
     if (!instante) continue;
 
+    var lat = parseFloat(tk[8]), lon = parseFloat(tk[9]);
+    var vel = parseFloat(tk[14]);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      res.posicoes.push({
+        hora: hora, dataHora: instante, lat: lat, lon: lon,
+        velocidade: isNaN(vel) ? null : vel
+      });
+    }
+
     if (status.indexOf("partida") !== -1) {
       res.partidas.push({ hora: hora, dataHora: instante });
     }
 
     if (transbordo && transbordo.lat != null && !chegadaConfirmada) {
-      var lat = parseFloat(tk[8]), lon = parseFloat(tk[9]);
       if (isNaN(lat) || isNaN(lon)) continue;
       var dist = distanciaMetros(lat, lon, transbordo.lat, transbordo.lon);
       var dentro = dist <= (transbordo.raio || 400);
@@ -478,7 +498,6 @@ function consultarEventosPeriodo(deviceId, cookies, dataRef, horaInicio, horaFim
 
       dentroConsecutivos++;
       if (!dentroDesde) dentroDesde = instante;
-      var vel = parseFloat(tk[14]);
       var velocidadeConhecida = !isNaN(vel);
       var parado = velocidadeConhecida && vel <= 3;
       var permanenciaMin = Math.round((instante.getTime() - dentroDesde.getTime()) / 60000);
@@ -493,6 +512,47 @@ function consultarEventosPeriodo(deviceId, cookies, dataRef, horaInicio, horaFim
   return res;
 }
 
+/* Confirma saída somente após o veículo ter sido visto dentro da base
+   e registrar dois pontos consecutivos além do raio externo. */
+function detectarSaidaBase(posicoes) {
+  var ordenadas = (posicoes || []).slice().sort(function(a,b){
+    return a.dataHora.getTime() - b.dataHora.getTime();
+  });
+  var viuDentro = false;
+  var foraConsecutivos = 0;
+  var primeiraFora = null;
+
+  for (var i = 0; i < ordenadas.length; i++) {
+    var p = ordenadas[i];
+    var dist = distanciaMetros(p.lat, p.lon, BASE_GRF.lat, BASE_GRF.lon);
+
+    if (dist <= BASE_GRF.raioEntrada) {
+      viuDentro = true;
+      foraConsecutivos = 0;
+      primeiraFora = null;
+      continue;
+    }
+
+    if (!viuDentro || dist < BASE_GRF.raioSaida) {
+      foraConsecutivos = 0;
+      primeiraFora = null;
+      continue;
+    }
+
+    if (!primeiraFora) primeiraFora = p;
+    foraConsecutivos++;
+    if (foraConsecutivos >= BASE_GRF.pontosForaParaConfirmar) {
+      return {
+        hora: primeiraFora.hora,
+        dataHora: primeiraFora.dataHora,
+        distancia: Math.round(dist),
+        origem: "Cerca GRF"
+      };
+    }
+  }
+  return null;
+}
+
 function buscarEventosNaJanela(deviceId, cookies, dataOper, transbordo, dataHoraSaidaConhecida) {
   var vazio = { partida: null, chegada: null };
   if (!dataOper || !cookies || !deviceId) return vazio;
@@ -505,9 +565,10 @@ function buscarEventosNaJanela(deviceId, cookies, dataOper, transbordo, dataHora
   var partidas = anterior.partidas.concat(operacional.partidas).sort(function(a,b){
     return a.dataHora.getTime() - b.dataHora.getTime();
   });
+  var saidaCerca = detectarSaidaBase(anterior.posicoes.concat(operacional.posicoes));
   var partida = dataHoraSaidaConhecida
     ? { hora: Utilities.formatDate(dataHoraSaidaConhecida, Session.getScriptTimeZone(), "HH:mm"), dataHora: dataHoraSaidaConhecida }
-    : (partidas[0] || null);
+    : (saidaCerca || partidas[0] || null);
 
   var chegadas = anterior.chegadas.concat(operacional.chegadas).sort(function(a,b){
     return a.dataHora.getTime() - b.dataHora.getTime();
@@ -582,6 +643,10 @@ function atualizarStatusFrota() {
       if (!col[c]) faltando.push(c);
     });
     if (faltando.length) { Logger.log("ERRO: colunas faltando: " + faltando.join(", ") + ". Rode configurarPlanilha()."); return; }
+
+    /* O Histórico não pode depender da resposta do GPS. Se ele tiver sido
+       limpo, é reconstruído imediatamente a partir da Programação. */
+    sincronizarHistorico(ss, coletarRegistrosProgramacao(ss));
 
     var frota = carregarFrotaConsolidada();
     if (Object.keys(frota).length === 0) { Logger.log("Nenhuma conta respondeu. Abortando."); return; }
@@ -784,6 +849,12 @@ function sincronizarHistoricoAgora() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* Pode ser executada manualmente sempre que a aba Histórico for limpa. */
+function reconstruirHistorico() {
+  sincronizarHistoricoAgora();
+  Logger.log("Histórico reconstruído a partir da Programação.");
 }
 
 function aoEditarProgramacao(e) {

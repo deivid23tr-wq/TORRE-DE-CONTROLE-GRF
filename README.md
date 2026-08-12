@@ -8,6 +8,7 @@ Painel de monitoramento ligado ao Google Sheets e ao GPS Eclipse.
 - Campos, Angra e rotas da Região dos Lagos com limite correto na virada do dia;
 - saídas da noite anterior comparadas com a data operacional completa;
 - consulta GPS de 18h do dia anterior até 23h59 do dia operacional;
+- saída confirmada pela cerca operacional da base GRF em Três Rios;
 - Histórico espelhado por linha da Programação, com `ID Viagem` oculto;
 - alterações manuais, inserções e exclusões refletidas no Histórico;
 - backup automático antes da primeira migração do Histórico;
@@ -29,6 +30,10 @@ O Apps Script é vinculado à planilha e não é implantado automaticamente pelo
    - sincronização após inclusão ou exclusão de linhas/colunas.
 5. Em **Implantar > Gerenciar implantações**, edite a implantação atual, selecione **Nova versão** e implante. Isso mantém a mesma URL consumida pelo painel.
 6. Execute `atualizarStatusFrota()` e confira Campos, Angra e Cabo Frio.
+
+Se a aba Histórico for limpa manualmente, execute `reconstruirHistorico()`.
+A atualização normal também reconstrói o Histórico antes de consultar o GPS,
+mesmo quando o portal de rastreamento estiver indisponível.
 
 ## Testes locais
 
