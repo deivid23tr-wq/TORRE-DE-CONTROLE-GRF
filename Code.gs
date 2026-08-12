@@ -853,8 +853,24 @@ function sincronizarHistoricoAgora() {
 
 /* Pode ser executada manualmente sempre que a aba Histórico for limpa. */
 function reconstruirHistorico() {
-  sincronizarHistoricoAgora();
-  Logger.log("Histórico reconstruído a partir da Programação.");
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error("Outra atualização está em andamento. Tente novamente em 1 minuto.");
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var registros = coletarRegistrosProgramacao(ss);
+    Logger.log("Linhas encontradas na Programação: " + registros.length);
+    if (!registros.length) {
+      throw new Error("Nenhuma linha válida encontrada na aba Programação. Confira Data, Placa e Cidade/Rota.");
+    }
+    sincronizarHistorico(ss, registros);
+    SpreadsheetApp.flush();
+    var hist = ss.getSheetByName("Histórico");
+    var gravadas = Math.max(hist.getLastRow() - 1, 0);
+    Logger.log("Linhas existentes no Histórico após reconstrução: " + gravadas);
+    if (!gravadas) throw new Error("O Histórico permaneceu vazio após a gravação.");
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function aoEditarProgramacao(e) {
