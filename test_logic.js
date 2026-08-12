@@ -52,4 +52,15 @@ assert.strictEqual(context.ehSim(" SIM "), true);
 assert.strictEqual(context.ehSim("x"), true);
 assert.strictEqual(context.ehSim("Não"), false);
 
+const base = context.BASE_GRF;
+const t0 = new Date(2026, 7, 11, 21, 0, 0);
+const saidaCerca = context.detectarSaidaBase([
+  { hora:"21:00", dataHora:new Date(t0), lat:base.lat, lon:base.lon },
+  { hora:"21:05", dataHora:new Date(t0.getTime()+5*60000), lat:base.lat+0.0046, lon:base.lon },
+  { hora:"21:07", dataHora:new Date(t0.getTime()+7*60000), lat:base.lat+0.0050, lon:base.lon }
+]);
+assert.ok(saidaCerca);
+assert.strictEqual(saidaCerca.hora, "21:05");
+assert.strictEqual(saidaCerca.origem, "Cerca GRF");
+
 console.log("Todos os testes de horário e virada de dia passaram.");
