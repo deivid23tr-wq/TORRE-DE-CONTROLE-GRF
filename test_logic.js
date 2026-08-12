@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
@@ -29,7 +30,7 @@ const context = {
 };
 
 vm.createContext(context);
-vm.runInContext(fs.readFileSync("repo/Code.gs", "utf8"), context, { filename: "Code.gs" });
+vm.runInContext(fs.readFileSync(path.join(__dirname, "Code.gs"), "utf8"), context, { filename: "Code.gs" });
 
 function desvio(destino, hora) {
   const dataOper = new Date(2026, 7, 12, 12, 0, 0);
