@@ -376,16 +376,16 @@
   .rota-secao{ margin-bottom:14px; }
   .rota-secao:last-child{ margin-bottom:0; }
   .rota-secao-titulo{
-    font-size:13px;
+    font-size:9.5px;
     text-transform:uppercase;
     letter-spacing:1.2px;
-    font-weight:800;
+    font-weight:700;
     padding-bottom:5px;
     margin-bottom:9px;
     border-bottom:1px solid var(--line);
   }
   .rota-secao-titulo.tb{ color:var(--amber); }
-  .rota-secao-titulo.dist{ color:var(--red); }
+  .rota-secao-titulo.dist{ color:var(--blue); }
   .rota-vazia{ font-size:11.5px; color:var(--muted-2); padding:2px 0 6px; }
 
   /* lista de distribuição usa 3 colunas (sem chegada) */
@@ -777,9 +777,8 @@ const dadosMock = [
    nada mais no código precisa mudar.
    ========================================================= */
 const HORARIO_LIMITE = [
-  { match: ["são pedro da aldeia", "cabo frio", "lagos"], limite: "00:00" },
-  { match: ["campos", "goytacaz"],              limite: "00:00" },
-  { match: ["angra", "angra dos reis"],         limite: "00:00" },
+  { match: ["são pedro da aldeia"],              limite: "00:00" },
+  { match: ["angra dos reis"],                   limite: "01:00" },
   { match: ["barra mansa"],                      limite: "04:00" },
   { match: ["petrópolis", "petropolis", "sapucaia"], limite: "06:00" },
   { match: ["três rios", "tres rios", "paraíba do sul", "paraiba do sul"], limite: "07:00" },
@@ -800,35 +799,6 @@ function calcularAtrasoMin(previsto){
   prev.setHours(h,m,0,0);
   const diffMin = Math.round((agora - prev)/60000);
   return diffMin;
-}
-
-function temNumero(valor){
-  return valor !== null && valor !== undefined && valor !== "" && Number.isFinite(Number(valor));
-}
-
-/* Usa o resultado do Apps Script. A comparação por relógio fica apenas
-   como compatibilidade enquanto a nova versão do Web App é implantada. */
-function itemAtrasado(d){
-  if(d.statusPrazo) return String(d.statusPrazo).toLowerCase() === "atrasado";
-  if(temNumero(d.atrasoMin)) return Number(d.atrasoMin) > 0;
-  if(!d.horaSaida) return false;
-  const limite = d.previsto || getHorarioLimite(d.destino);
-  const [hL,mL] = limite.split(":").map(Number);
-  const [hS,mS] = d.horaSaida.split(":").map(Number);
-  const minLimite = hL*60 + mL;
-  const minSaida = hS*60 + mS;
-  if(minSaida >= 18*60 && minLimite <= 12*60) return false;
-  return minSaida > minLimite;
-}
-
-function ordemSaidaOperacional(d){
-  if(!d.horaSaida) return 99999;
-  const limite = d.previsto || getHorarioLimite(d.destino);
-  const [hL,mL] = limite.split(":").map(Number);
-  const [hS,mS] = d.horaSaida.split(":").map(Number);
-  const minLimite = hL*60 + mL;
-  const minSaida = hS*60 + mS;
-  return (minSaida >= 18*60 && minLimite <= 12*60) ? minSaida - 1440 : minSaida;
 }
 
 function formatarAtraso(min){
@@ -858,7 +828,7 @@ function render(dados){
 
   const pendentes = dados.filter(d=>!d.saiu)
     .map(d=>({...d, previsto: d.previsto || getHorarioLimite(d.destino)}))
-    .map(d=>({...d, atraso: temNumero(d.atrasoMin) ? Number(d.atrasoMin) : calcularAtrasoMin(d.previsto)}))
+    .map(d=>({...d, atraso: calcularAtrasoMin(d.previsto)}))
     .sort((a,b)=>b.atraso - a.atraso);
 
   pendentes.forEach(d=>{
@@ -908,7 +878,14 @@ function render(dados){
   }
 
   function marcarAtraso(d){
-    return {...d, atrasado:itemAtrasado(d)};
+    if(!d.horaSaida) return {...d, atrasado:false};
+    /* O servidor calcula o atraso com data completa — saída na véspera
+       conta como no prazo. Só recalcula localmente se ele não mandar. */
+    if(typeof d.atrasoMin === "number") return {...d, atrasado: d.atrasoMin > 0};
+    const limite = d.previsto || getHorarioLimite(d.destino);
+    const [hL,mL] = limite.split(":").map(Number);
+    const [hS,mS] = d.horaSaida.split(":").map(Number);
+    return {...d, atrasado: (hS*60 + mS) > (hL*60 + mL)};
   }
 
   const listaTransbordo   = dados.filter(d => d.tipo === "Transbordo").map(marcarAtraso);
@@ -921,10 +898,17 @@ function render(dados){
   const saidas = dados.filter(d=>d.saiu && d.horaSaida)
     .map(d=>{
       const limite = d.previsto || getHorarioLimite(d.destino);
-      const atrasado = itemAtrasado(d);
+      let atrasado;
+      if(typeof d.atrasoMin === "number"){
+        atrasado = d.atrasoMin > 0;
+      } else {
+        const [hL,mL] = limite.split(":").map(Number);
+        const [hS,mS] = d.horaSaida.split(":").map(Number);
+        atrasado = (hS*60 + mS) > (hL*60 + mL);
+      }
       return {...d, limite, atrasado};
     })
-    .sort((a,b)=> ordemSaidaOperacional(a) - ordemSaidaOperacional(b));
+    .sort((a,b)=> a.horaSaida.localeCompare(b.horaSaida));
 
   const porHora = {};
   saidas.forEach(d=>{
@@ -933,9 +917,7 @@ function render(dados){
     porHora[h].push(d);
   });
 
-  const horas = Object.keys(porHora).sort((a,b)=>
-    ordemSaidaOperacional(porHora[a][0]) - ordemSaidaOperacional(porHora[b][0])
-  );
+  const horas = Object.keys(porHora).sort();
   const maxVal = Math.max(1, ...Object.values(porHora).map(arr=>arr.length));
   const tlChart = document.getElementById("tlChart");
   const tlLabels = document.getElementById("tlLabels");
@@ -1057,7 +1039,7 @@ tickClock();
    painel cai pro mock automaticamente, pra nunca ficar em
    branco na TV.
    ========================================================= */
-const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyL8qOQcDNlo6MLvr4Q5j4XtnkBCbbmCF79JXiePOSfwblgmuIXehjMkxYUV0KW2QgP/exec";
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwVV50XIeUlITWimEl3Oub6_P0i-xN7ZA5ISIxJQbbHIPnlCTu0kMdy5C4c1rt-91bM/exec";
 
 function mostrarFalha(msg){
   // Nunca cair pro mock: melhor mostrar que está sem dados do que mostrar dado falso.
@@ -1104,10 +1086,7 @@ async function carregarDados(){
       saiu: !!d.saiu,
       horaSaida: d.horaSaida || null,
       previsto: d.horarioLimite || getHorarioLimite(d.destino),
-      atrasoMin: d.atrasoMin,
-      statusPrazo: d.statusPrazo || null,
-      saidaPrevistaEm: d.saidaPrevistaEm || null,
-      saidaRealEm: d.saidaRealEm || null,
+      atrasoMin: (typeof d.atrasoMin === "number") ? d.atrasoMin : null,
       tipo: d.tipo || "Entrega",
       chegou: !!d.chegou,
       horaChegada: d.horaChegada || null
