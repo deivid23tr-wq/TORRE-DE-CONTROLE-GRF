@@ -258,6 +258,8 @@
   }
   .status-pill.critico{ background:rgba(229,72,77,0.14); color:var(--red); }
   .status-pill.atencao{ background:rgba(245,166,35,0.14); color:var(--amber); }
+  .status-pill.ok{ background:rgba(46,204,113,0.14); color:var(--green); }
+  .atraso.ok{ color:var(--green); }
   .status-pill .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
   .atraso{ font-weight:700; font-size:0.92em; }
   .atraso.critico{ color:var(--red); }
@@ -740,7 +742,7 @@
 
   <footer>
     <span id="footerUpdate">Última atualização: —</span>
-    <span>Fonte: GPS Eclipse · Google Sheets — Programação de Cargas</span>
+    <span>Fonte: GPS Eclipse · Google Sheets &nbsp;·&nbsp; <b id="verPainel">painel v4</b></span>
   </footer>
 
 <script>
@@ -828,12 +830,19 @@ function render(dados){
 
   const pendentes = dados.filter(d=>!d.saiu)
     .map(d=>({...d, previsto: d.previsto || getHorarioLimite(d.destino)}))
-    .map(d=>({...d, atraso: calcularAtrasoMin(d.previsto)}))
+    /* O servidor calcula com data completa (a programação de amanhã tem
+       o limite amanhã). Só recalcula localmente se ele não mandar. */
+    .map(d=>({...d, atraso: (typeof d.atrasoMin === "number")
+                              ? d.atrasoMin
+                              : calcularAtrasoMin(d.previsto)}))
     .sort((a,b)=>b.atraso - a.atraso);
 
   pendentes.forEach(d=>{
-    const critico = d.atraso >= 60;
-    const nivel = critico ? "critico" : (d.atraso > 0 ? "atencao" : "atencao");
+    const critico  = d.atraso >= 60;
+    const atrasado = d.atraso > 0;
+    // prazo ainda não chegou: no prazo, não é atraso
+    const nivel = critico ? "critico" : (atrasado ? "atencao" : "ok");
+    const rotulo = critico ? "Crítico" : (atrasado ? "Atrasado" : "No prazo");
     const row = document.createElement("div");
     row.className = "board-row";
     const atrasoTxt = formatarAtraso(d.atraso);
@@ -841,7 +850,7 @@ function render(dados){
       <span class="placa">${d.placa}</span>
       <span class="destino">${d.destino}</span>
       <span class="meta"><span class="prev">${d.previsto}</span><span class="atraso ${nivel}">${atrasoTxt}</span></span>
-      <span class="status-pill ${nivel}"><span class="dot"></span>${critico ? "Crítico" : "Aguardando"}</span>
+      <span class="status-pill ${nivel}"><span class="dot"></span>${rotulo}</span>
     `;
     board.appendChild(row);
   });
